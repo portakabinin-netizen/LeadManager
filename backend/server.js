@@ -22,9 +22,10 @@ const io = new Server(server, {
 // ✅ Mount routes at /api to match frontend calls
 
 const allRoutes = require("./routes/MongoDBQueryController")(io);
-
+const waMassageRoutes =require("./routes/whatsappRoute");
 
 app.use("/action", allRoutes);
+app.use("/wamsg",waMassageRoutes);
 
 // Optional middleware hook (currently unused)
 app.use((req, res, next) => {

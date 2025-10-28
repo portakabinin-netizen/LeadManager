@@ -9,8 +9,7 @@ import { UrlInfo, UrlResult } from "./TileFormat";
 /* Get URL information start date from database  */
 
 export const getUrlInfo = async (): Promise<UrlResult> => {
-  console.log("🔹 Fetching URL info from backend...");
-
+ 
   const res = await axios.get(`${BASE_URL}/url`);
 
   if (res.data.success && Array.isArray(res.data.data) && res.data.data.length > 0) {
@@ -32,8 +31,9 @@ export const getUrlInfo = async (): Promise<UrlResult> => {
 
     const apiUrl = `${urlInfo.urlapi}${query}`;
     const emailUrl = urlInfo.urlinbox;
+    const waMsgUrl=  urlInfo.waMsgUrl;
 
-    return { apiUrl, emailUrl };
+    return { apiUrl, emailUrl , waMsgUrl };
   }
 
   throw new Error("No URL info found in collection");
@@ -63,9 +63,10 @@ export const buildUrls = (urlInfo: UrlInfo): UrlResult => {
     .join("&");
 
   const apiUrl = `${urlInfo.urlapi}?${query}`;
-  const emailUrl = urlInfo.urlinbox; // ✅ fixed
+  const emailUrl = urlInfo.urlinbox;
+  const waMsgUrl =urlInfo.waMsgUrl;
 
-   return { apiUrl, emailUrl };
+   return { apiUrl, emailUrl , waMsgUrl};
 };
 
 
@@ -160,18 +161,42 @@ export const updateLeadStatus = async (id: string, status: string, note?: string
 };
 
 // Fatched and save leads from api and inbox
-export const getAndSaveLeads=async(url1: string , url2: string)=>{
- const leadsData = await getDataProcess(url1, url2);
+export const getAndSaveLeads = async (url1: string, url2: string) => {
+  try {
+    // 🔹 Step 1: Fetch and normalize leads
+    const leadsData = await getDataProcess(url1, url2);
+    
+    if (!leadsData || leadsData.length === 0) {
+      const msg = "No new leads found to insert.";
+     
+      return { count: 0, message: msg };
+    }
 
-  console.log("🎯 Normalized Leads:", leadsData);
+    // 🔹 Step 2: Send to backend for saving (backend skips duplicates)
+    const response = await axios.post(`${BASE_URL}/addmany`, leadsData);
 
-  // Send to backend to save in DB
-  const response = await axios.post(`${BASE_URL}/addmany`, leadsData);
-  console.log(`✅ ${response.data?.data?.length || 0} leads added successfully`);
-  
+    const insertedCount =
+      response.data?.insertedCount ||
+      response.data?.data?.length ||
+      0;
 
-}
+    const msg =
+      insertedCount > 0
+        ? `✅ ${insertedCount} new leads added successfully.`
+        : "⚠️ All leads are already present, no new leads added.";
 
+       return { count: insertedCount, message: msg };
+  } catch (error: any) {
+    console.error("❌ Lead Insert Error:", error.response?.data || error.message);
+
+    const errMsg =
+      error?.response?.data?.message ||
+      error?.message ||
+      "Something went wrong while syncing leads.";
+
+    return { count: 0, message: errMsg };
+  }
+};
 
 // ------------------- LEDGER SERVICES -------------------
 

@@ -61,34 +61,30 @@ const embeddedLedgerSchema = new mongoose.Schema(
 //
 // 📋 Main Lead Schema
 //
-const leadSchema = new mongoose.Schema(
-  {
-    source_id: { type: String, required: true, unique: true, index: true },
-    lead_no: { type: Number, required: true },
-    sender_name: { type: String, default: "Unknown" },
-    sender_mobile: { type: String, default: "", index: true },
-    sender_email: { type: String, default: "", index: true },
-    sender_city: { type: String, default: "Unknown" },
-    sender_state: { type: String, default: "Unknown" },
-    product_name: { type: String, default: "No Product" },
-    generated_date: { type: String, default: "Non" },
-    source: {
-      type: String,
-      enum: ["IndiaMart", "TradeIndia", "Other"],
-      default: "Other",
-      index: true,
-    },
-    status: {
-      type: String,
-      enum: ["Unread", "Recent", "Engaged", "Accepted", "Recycle"],
-      default: "Unread",
-      index: true,
-    },
-    activity: { type: [activitySchema], default: [] },
-    ledger: { type: [embeddedLedgerSchema], default: [] }, // embedded ledger
-  },
-  { timestamps: true, strict: true }
-);
+const leadSchema = new mongoose.Schema({
+  lead_no: { type: Number, required: false, unique: true },
+  product_name: String,
+  sender_name: String,
+  sender_city: String,
+  sender_state: String,
+  sender_mobile: String,
+  sender_email: String,
+  source: String,
+  source_id: String,
+  status: { type: String, default: "Unread" },
+  generated_date: { type: Date, default: Date.now },
+  activity: { type: Array, default: [] },
+  ledger: { type: Array, default: [] },
+});
+
+// ✅ Auto-increment logic before saving a new lead
+leadSchema.pre("save", async function (next) {
+  if (this.isNew) {
+    const lastLead = await mongoose.model("Lead").findOne().sort({ lead_no: -1 }).select("lead_no");
+    this.lead_no = lastLead ? lastLead.lead_no + 1 : 1;
+  }
+  next();
+});
 
 //
 // Ledger account for income,expenses,vendor, customer 
@@ -106,16 +102,26 @@ const accountSchema = new mongoose.Schema(
 
 const UrlinfoSchema = new mongoose.Schema(
   {
-    urlapi: { type: String, required: true , trim:true },
-    urlinbox: { type: String, required: true , trim:true },
-    userid: { type: String, required: true , trim:true },
-    profile_id: { type: String, required: true , trim:true },
-    key: { type: String, required: true , trim:true },
-    limit: { type: Number, default: 50 , trim:true },
-    page_no: { type: Number, default: 1 , trim:true },
+    // 🔹 TradeIndia / Lead API Configuration
+    urlapi: { type: String, required: true, trim: true },
+    urlinbox: { type: String, required: true, trim: true },
+    userid: { type: String, required: true, trim: true },
+    profile_id: { type: String, required: true, trim: true },
+    key: { type: String, required: true, trim: true },
+    limit: { type: Number, default: 50, trim: true },
+    page_no: { type: Number, default: 1, trim: true },
+
+    // 🔹 WhatsApp Integration Configuration
+    service: { type: String, default: "whatsapp", trim: true },
+    waMsgUrl: { type: String, required: true, trim: true }, // e.g. https://graph.facebook.com/v17.0
+    phone_number_id: { type: String, required: true, trim: true },
+    token: { type: String, required: true, trim: true }, // you may encrypt this later
   },
   { timestamps: true } // adds createdAt and updatedAt
 );
+
+module.exports = mongoose.model("Urlinfo", UrlinfoSchema);
+
 
 //
 const Leads = mongoose.model("Leads", leadSchema);

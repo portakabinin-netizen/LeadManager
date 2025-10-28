@@ -135,28 +135,48 @@ const fetchExternalLeads = async (): Promise<RawLead[]> => {
 // -------------------- 🔹 Map Leads --------------------
 const mapLeads = (rawLeads: RawLead[]): Lead[] => {
   console.log("🔹 Mapping raw leads to structured leads...");
+
   return rawLeads.map((item, index) => {
     const viewStatus = item.view_status?.toLowerCase() || "";
-    let status = "New";
+    let status = "Unread";
+
     if (viewStatus.includes("engaged")) status = "Engaged";
     else if (viewStatus.includes("accepted")) status = "Accepted";
     else if (viewStatus.includes("recent")) status = "Recent";
 
+    // 🗓️ Ensure date is valid and consistent (YYYY-MM-DD)
+    const parsedDate = parseDateToYYYYMMDD(
+      item.generated_date,
+      item.generated_time,
+      item.generated
+    );
+
+    // If date is invalid, fallback to current date
+    const safeDate =
+      parsedDate && !isNaN(new Date(parsedDate).getTime())
+        ? parsedDate
+        : new Date().toISOString().split("T")[0];
+
     return {
       key: `${item.rfi_id || index}`,
-      source_id: item.rfi_id || item.source_id || `${item.source || "TI"}-${item.sender_mobile || Date.now()}`,
-      sender_name: item.sender_name || "Unknown",
+      source_id:
+        item.rfi_id ||
+        item.source_id ||
+        `${item.source || "TI"}-${item.sender_mobile || Date.now()}`,
+      sender_name: item.sender_name?.trim() || "Unknown",
       sender_mobile: item.sender_mobile || item.sender_other_mobiles || "",
       sender_email: item.sender_email || "",
-      sender_city: item.sender_city || "Unknown",
-      sender_state: item.sender_state || "Unknown",
-      product_name: item.product_name || "No Product",
-      generated_date: parseDateToYYYYMMDD(item.generated_date, item.generated_time, item.generated),
+      sender_city: item.sender_city?.trim() || "Unknown",
+      sender_state: item.sender_state?.trim() || "Unknown",
+      product_name: item.product_name?.trim() || "No Product",
+      generated_date: safeDate,
       source: item.source || "TradeIndia",
       status,
+      // ❌ Exclude lead_no entirely; backend will auto-generate it
     };
   });
 };
+
 
 // -------------------- 🔹 Fetch & Sync Leads --------------------
 export const fetchAndSyncLeads = async (): Promise<void> => {

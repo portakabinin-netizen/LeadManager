@@ -21,16 +21,45 @@ module.exports = (io) => {
   });
 
   // ➕ Add Multiple Leads
-  router.post("/addMany", async (req, res) => {
-    try {
-      const leads = Array.isArray(req.body) ? req.body : [req.body];
-      const inserted = await Leads.insertMany(leads);
-      io.emit("lead:bulkAdded", inserted);
-      res.status(201).json({ message: `✅ ${inserted.length} leads added`, data: inserted });
-    } catch (err) {
-      res.status(500).json({ error: err.message });
+  router.post("/addmany", async (req, res) => {
+  try {
+    const leads = req.body;
+
+    if (!Array.isArray(leads) || leads.length === 0) {
+      return res
+        .status(400)
+        .json({ success: false, message: "No leads provided." });
     }
-  });
+
+    // ✅ Insert all leads, skip duplicates automatically
+    const result = await Lead.insertMany(leads, { ordered: false });
+
+    return res.json({
+      success: true,
+      insertedCount: result.length,
+      message: `${result.length} new unique leads inserted.`,
+    });
+  } catch (error) {
+    console.error("❌ Lead insertMany error:", error);
+
+    // ✅ Handle duplicate key errors gracefully
+    if (error?.code === 11000 || error?.writeErrors) {
+      const insertedCount = error.result?.result?.nInserted || 0;
+
+      return res.json({
+        success: true,
+        insertedCount,
+        message: `⚠️ Some duplicates skipped. ${insertedCount} new leads inserted.`,
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
 
   // 🔍 Retrieve All Leads
   router.get("/retrieve", async (req, res) => {

@@ -96,4 +96,5 @@ export interface UrlInfo {
 export interface UrlResult {
   apiUrl: string;
   emailUrl: string;
+  waMsgUrl : string;
 }

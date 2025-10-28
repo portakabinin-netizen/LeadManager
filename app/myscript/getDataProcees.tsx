@@ -47,37 +47,29 @@ const prepareLead = (item: any, leadNo: number) => {
 // -------------------- 🔹 Fetch & Normalize Leads --------------------
 export const getDataProcess = async (url1: string, url2: string) => {
   try {
-    console.log("🌐 Fetching leads from URL1 (TradeIndia):", url1);
     const resp1 = await axios.get(url1);
     const data1 = Array.isArray(resp1.data) ? resp1.data : [];
-    console.log("🔹 Raw data from URL1:", data1);
-
     const normalized1 = data1.map(item => ({
       ...item,
       source: "TradeIndia",
       status: "Unread",
     }));
-    console.log("🔹 Normalized URL1 leads:", normalized1);
-
-    console.log("🌐 Fetching leads from URL2 (IndiaMart):", url2);
+    
     const resp2 = await axios.get(url2);
     const data2 = resp2.data?.records || [];
-    console.log("🔹 Raw data from URL2:", data2);
-
+    
     const normalized2 = data2.map(item => ({
       ...item,
       source: "IndiaMart",
       status: "Unread",
     }));
-    console.log("🔹 Normalized URL2 leads:", normalized2);
-
+    
     const combined = [...normalized1, ...normalized2];
-    console.log("🔹 Combined leads count:", combined.length);
+    
 
     // Prepare for backend (map missing fields, activity, ledger)
     const preparedLeads = combined.map((item, idx) => prepareLead(item, idx + 1));
-    console.log("🔹 Prepared leads for backend:", JSON.stringify(preparedLeads, null, 2));
-
+    
     return preparedLeads;
   } catch (err: any) {
     console.error("❌ Error fetching leads:", err.message || err);
@@ -94,7 +86,7 @@ export const sendLeadsToBackend = async (url1: string, url2: string, BASE_URL: s
     return;
   }
 
-  const BATCH_SIZE = 50;
+  const BATCH_SIZE = 100;
   for (let i = 0; i < leads.length; i += BATCH_SIZE) {
     const batch = leads.slice(i, i + BATCH_SIZE);
     try {
