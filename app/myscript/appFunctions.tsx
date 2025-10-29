@@ -1,4 +1,3 @@
-// app/myscript/leadActions.ts
 import axios from "axios";
 import Toast from "react-native-toast-message";
 import { waMsg_URL } from "./base_url";

@@ -6,7 +6,6 @@ const os = require("os");
 const http = require("http");
 const { Server } = require("socket.io");
 require("dotenv").config();
-
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -19,17 +18,21 @@ const io = new Server(server, {
   cors: { origin: "*" },
 });
 
-// ✅ Mount routes at /api to match frontend calls
+// ✅ Mount routes
 
 const allRoutes = require("./routes/MongoDBQueryController")(io);
-const waMassageRoutes =require("./routes/whatsappRoute");
+
+
 
 app.use("/action", allRoutes);
-app.use("/wamsg",waMassageRoutes);
+
+
 
 // Optional middleware hook (currently unused)
+
 app.use((req, res, next) => {
   if (["POST", "PUT"].includes(req.method)) {
+    
     // Add validation / logging here if needed
   }
   next();

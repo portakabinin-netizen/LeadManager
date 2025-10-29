@@ -1,4 +1,3 @@
-// src/services/leadservices.ts
 import axios from "axios";
 
 // -------------------- 🔹 Month mapping for TradeIndia --------------------
@@ -56,7 +55,8 @@ export const getDataProcess = async (url1: string, url2: string) => {
     }));
     
     const resp2 = await axios.get(url2);
-    const data2 = resp2.data?.records || [];
+    const data2 = Array.isArray(resp2.data) ? resp2.data:[];
+    //const data2 = resp2.data?.records || [];
     
     const normalized2 = data2.map(item => ({
       ...item,
@@ -68,9 +68,11 @@ export const getDataProcess = async (url1: string, url2: string) => {
     
 
     // Prepare for backend (map missing fields, activity, ledger)
+    
     const preparedLeads = combined.map((item, idx) => prepareLead(item, idx + 1));
     
     return preparedLeads;
+
   } catch (err: any) {
     console.error("❌ Error fetching leads:", err.message || err);
     return [];
@@ -79,23 +81,31 @@ export const getDataProcess = async (url1: string, url2: string) => {
 
 // -------------------- 🔹 Send Leads to Backend --------------------
 export const sendLeadsToBackend = async (url1: string, url2: string, BASE_URL: string) => {
+ 
   const leads = await getDataProcess(url1, url2);
 
   if (!leads.length) {
-    console.log("ℹ️ No leads to send to backend");
+    console.log(" No Data for save! ");
     return;
   }
 
-  const BATCH_SIZE = 100;
+  const BATCH_SIZE = 50;
+
   for (let i = 0; i < leads.length; i += BATCH_SIZE) {
+  
     const batch = leads.slice(i, i + BATCH_SIZE);
+  
     try {
       const res = await axios.post(`${BASE_URL}/addmany`, batch, {
         headers: { "Content-Type": "application/json" },
       });
+  
       console.log(`✅ Batch saved: ${res.data?.data?.length || batch.length} leads`);
+  
     } catch (error: any) {
+  
       console.error("❌ Error saving batch to backend:", error.message || error.response?.data || error);
+  
     }
   }
 };

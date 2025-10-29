@@ -111,12 +111,7 @@ const UrlinfoSchema = new mongoose.Schema(
     limit: { type: Number, default: 50, trim: true },
     page_no: { type: Number, default: 1, trim: true },
 
-    // 🔹 WhatsApp Integration Configuration
-    service: { type: String, default: "whatsapp", trim: true },
-    waMsgUrl: { type: String, required: true, trim: true }, // e.g. https://graph.facebook.com/v17.0
-    phone_number_id: { type: String, required: true, trim: true },
-    token: { type: String, required: true, trim: true }, // you may encrypt this later
-  },
+     },
   { timestamps: true } // adds createdAt and updatedAt
 );
 

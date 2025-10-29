@@ -9,18 +9,24 @@ import { UrlInfo, UrlResult } from "./TileFormat";
 /* Get URL information start date from database  */
 
 export const getUrlInfo = async (): Promise<UrlResult> => {
- 
   const res = await axios.get(`${BASE_URL}/url`);
 
   if (res.data.success && Array.isArray(res.data.data) && res.data.data.length > 0) {
     const urlInfo: UrlInfo = res.data.data[0];
 
+    // Format dates as yyyy-mm-dd
+    const formatDate = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+    const fromDate = formatDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
+    const toDate = formatDate(new Date());
+
     const params = {
       userid: urlInfo.userid,
       profile_id: urlInfo.profile_id,
       key: urlInfo.key,
-      from_date: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-      to_date: new Date().toISOString().split("T")[0],
+      from_date: fromDate,
+      to_date: toDate,
       limit: urlInfo.limit || 50,
       page_no: urlInfo.page_no || 1,
     };
@@ -29,11 +35,11 @@ export const getUrlInfo = async (): Promise<UrlResult> => {
       .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
       .join("&");
 
-    const apiUrl = `${urlInfo.urlapi}${query}`;
-    const emailUrl = urlInfo.urlinbox;
-    const waMsgUrl=  urlInfo.waMsgUrl;
+    const apiUrl = `${urlInfo.urlapi}?${query}`;
+    const emailUrl = `${urlInfo.urlinbox}`;
+    const waMsgUrl = `${urlInfo.waMsgUrl}`;
 
-    return { apiUrl, emailUrl , waMsgUrl };
+    return { apiUrl, emailUrl, waMsgUrl };
   }
 
   throw new Error("No URL info found in collection");
@@ -63,9 +69,9 @@ export const buildUrls = (urlInfo: UrlInfo): UrlResult => {
     .join("&");
 
   const apiUrl = `${urlInfo.urlapi}?${query}`;
-  const emailUrl = urlInfo.urlinbox;
-  const waMsgUrl =urlInfo.waMsgUrl;
-
+  const emailUrl = '${urlInfo.urlinbox}';
+  const waMsgUrl = '${urlInfo.waMsgUrl}';
+  
    return { apiUrl, emailUrl , waMsgUrl};
 };
 
@@ -81,7 +87,7 @@ export const getLeadsByStatus = async (status?: string) => {
 
 // Fetch lead by status and sources and count total leads 
 
-export const countLeadsByStatus = async (status) => {
+export const countLeadsByStatus = async (status :any) => {
   try {
     const { data } = await axios.get(`${BASE_URL}/retrieve?status=${encodeURIComponent(status)}&count=true` );
     return data; // expect { count: number }
@@ -122,6 +128,7 @@ export const getLeadsByPeriod = async (
 
 
 // Add / Create new lead(s)
+
 export const addLeads = async (leads: Lead[] | Lead) => {
   const payload = Array.isArray(leads) ? leads : [leads];
   const { data } = await axios.post(`${BASE_URL}/add`, payload);
@@ -129,6 +136,7 @@ export const addLeads = async (leads: Lead[] | Lead) => {
 };
 
 // Update existing lead(s)
+
 export const saveOrUpdateLeads = async (leads: Lead[] | Lead) => {
   const list = Array.isArray(leads) ? leads : [leads];
   const results = [];
@@ -160,8 +168,10 @@ export const updateLeadStatus = async (id: string, status: string, note?: string
   return data;
 };
 
-// Fatched and save leads from api and inbox
+// Add mupltiple leads in database, fetched from External server using API
+
 export const getAndSaveLeads = async (url1: string, url2: string) => {
+
   try {
     // 🔹 Step 1: Fetch and normalize leads
     const leadsData = await getDataProcess(url1, url2);
@@ -173,6 +183,7 @@ export const getAndSaveLeads = async (url1: string, url2: string) => {
     }
 
     // 🔹 Step 2: Send to backend for saving (backend skips duplicates)
+
     const response = await axios.post(`${BASE_URL}/addmany`, leadsData);
 
     const insertedCount =
@@ -187,8 +198,7 @@ export const getAndSaveLeads = async (url1: string, url2: string) => {
 
        return { count: insertedCount, message: msg };
   } catch (error: any) {
-    console.error("❌ Lead Insert Error:", error.response?.data || error.message);
-
+    
     const errMsg =
       error?.response?.data?.message ||
       error?.message ||
@@ -329,6 +339,6 @@ export default {
   getDashboardData,
   getUrlInfo,
   buildUrls,
- getAndSaveLeads,
+  getAndSaveLeads,
 
 };
