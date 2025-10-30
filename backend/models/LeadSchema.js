@@ -1,6 +1,53 @@
 const mongoose = require("mongoose");
 
 //
+// 🧩 Access Subschema (for role-based permissions)
+//
+const accessSchema = new mongoose.Schema(
+  {
+    menuId: { type: String, required: true, trim: true }, // e.g., from MenuItems.json
+    menuName: { type: String, required: true, trim: true },
+    view: { type: Boolean, default: false },
+    create: { type: Boolean, default: false },
+    edit: { type: Boolean, default: false },
+    delete: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
+//
+// 👤 User Schema
+//
+const userSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true },
+    role: {
+      type: String,
+      required: true,
+      enum: ["Admin", "Sale", "Operation"], // Custom roles for your app
+      trim: true,
+    },
+    mobile: {
+      type: String,
+      required: true,
+      unique: true,
+      match: /^[6-9]\d{9}$/,
+      trim: true,
+    },
+    password: { type: String, required: true, minlength: 6 },
+
+    // 🌐 Role-Based Access Controls
+    defaultMenu: { type: [accessSchema], default: [] }, // Default role permissions
+    companyMenu: { type: [accessSchema], default: [] }, // Company-specific permissions
+
+    // 🧭 Tracking Info
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  },
+  { timestamps: true }
+);
+
+//
 // 🧾 Activity Schema
 //
 const activitySchema = new mongoose.Schema(
@@ -16,7 +63,7 @@ const activitySchema = new mongoose.Schema(
 //
 const ledgerSchema = new mongoose.Schema(
   {
-    lead_id: { // Link to lead
+    lead_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Leads",
       required: true,
@@ -27,7 +74,7 @@ const ledgerSchema = new mongoose.Schema(
     amount: { type: Number, required: true },
     type: { type: String, enum: ["Dr", "Cr"], required: true },
     account_title: { type: String, required: true, trim: true },
-    account_id: { // Optional reference to Accounts
+    account_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Accounts",
     },
@@ -36,62 +83,70 @@ const ledgerSchema = new mongoose.Schema(
 );
 
 //
-// Embedded Ledger Schema (stores only reference to main ledger)
+// 🧾 Embedded Ledger Schema (reference to main ledger)
 //
 const embeddedLedgerSchema = new mongoose.Schema(
   {
-    ledger_id: { // Link to main Ledger collection
+    ledger_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Ledgers",
-      required: false,
     },
     date: { type: Date, required: true },
     narration: { type: String, required: true },
     amount: { type: Number, required: true },
     type: { type: String, enum: ["Dr", "Cr"], required: true },
-    account_title: { type: String, required: false },
-    account_id: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Accounts",
-    },
+    account_title: { type: String },
+    account_id: { type: mongoose.Schema.Types.ObjectId, ref: "Accounts" },
   },
   { _id: true }
 );
 
 //
-// 📋 Main Lead Schema
+// 📋 Lead Schema
 //
-const leadSchema = new mongoose.Schema({
-  lead_no: { type: Number, required: false, unique: true },
-  product_name: String,
-  sender_name: String,
-  sender_city: String,
-  sender_state: String,
-  sender_mobile: String,
-  sender_email: String,
-  source: String,
-  source_id: String,
-  status: { type: String, default: "Unread" },
-  generated_date: { type: Date, default: Date.now },
-  activity: { type: Array, default: [] },
-  ledger: { type: Array, default: [] },
-});
+const leadSchema = new mongoose.Schema(
+  {
+    lead_no: { type: Number, unique: true },
+    product_name: String,
+    sender_name: String,
+    sender_city: String,
+    sender_state: String,
+    sender_mobile: String,
+    sender_email: String,
+    source: String,
+    source_id: String,
+    status: { type: String, default: "Unread" },
+    generated_date: { type: Date, default: Date.now },
+    activity: { type: [activitySchema], default: [] },
+    ledger: { type: [embeddedLedgerSchema], default: [] },
+  },
+  { timestamps: true }
+);
 
-// ✅ Auto-increment logic before saving a new lead
+// 🔁 Auto-increment lead_no
 leadSchema.pre("save", async function (next) {
   if (this.isNew) {
-    const lastLead = await mongoose.model("Lead").findOne().sort({ lead_no: -1 }).select("lead_no");
+    const lastLead = await mongoose
+      .model("Leads")
+      .findOne()
+      .sort({ lead_no: -1 })
+      .select("lead_no");
     this.lead_no = lastLead ? lastLead.lead_no + 1 : 1;
   }
   next();
 });
 
 //
-// Ledger account for income,expenses,vendor, customer 
+// 🏦 Account Schema (for income, expenses, vendors, customers)
+//
 const accountSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
-    type: { type: String, enum: ["Customer", "Supplier", "Bank", "Expense", "Other"], default: "Customer" },
+    type: {
+      type: String,
+      enum: ["Customer", "Supplier", "Bank", "Expense", "Other"],
+      default: "Customer",
+    },
     balance: { type: Number, default: 0 },
     contact_no: { type: String, default: "" },
     email: { type: String, default: "" },
@@ -100,29 +155,12 @@ const accountSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-const UrlinfoSchema = new mongoose.Schema(
-  {
-    // 🔹 TradeIndia / Lead API Configuration
-    urlapi: { type: String, required: true, trim: true },
-    urlinbox: { type: String, required: true, trim: true },
-    userid: { type: String, required: true, trim: true },
-    profile_id: { type: String, required: true, trim: true },
-    key: { type: String, required: true, trim: true },
-    limit: { type: Number, default: 50, trim: true },
-    page_no: { type: Number, default: 1, trim: true },
-
-     },
-  { timestamps: true } // adds createdAt and updatedAt
-);
-
-module.exports = mongoose.model("Urlinfo", UrlinfoSchema);
-
-
 //
+// 🧱 Model Exports
+//
+const Users = mongoose.model("Users", userSchema);
 const Leads = mongoose.model("Leads", leadSchema);
 const Ledgers = mongoose.model("Ledgers", ledgerSchema);
 const Accounts = mongoose.model("Accounts", accountSchema);
-const Urlinfo = mongoose.model("urlinfo", UrlinfoSchema);
 
-module.exports = { Leads, Ledgers, Accounts, Urlinfo };
-module.exports.default = Leads;
+module.exports = { Users, Leads, Ledgers, Accounts };

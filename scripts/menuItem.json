@@ -1,0 +1,12 @@
+{
+  "Admin": [
+    { "menuId": "dashboard", "menuName": "Dashboard", "view": true, "create": true, "edit": true, "delete": true },
+    { "menuId": "leads", "menuName": "Leads", "view": true, "create": true, "edit": true, "delete": true }
+  ],
+  "Sale": [
+    { "menuId": "leads", "menuName": "Leads", "view": true, "create": true, "edit": false, "delete": false }
+  ],
+  "Operation": [
+    { "menuId": "reports", "menuName": "Reports", "view": true, "create": false, "edit": false, "delete": false }
+  ]
+}

@@ -21,11 +21,12 @@ const io = new Server(server, {
 // ✅ Mount routes
 
 const allRoutes = require("./routes/MongoDBQueryController")(io);
+const userRoutes = require("./routes/UserRoutes")(io);
 
 
 
 app.use("/action", allRoutes);
-
+app.use("/usr", userRoutes);
 
 
 // Optional middleware hook (currently unused)
