@@ -1,261 +1,298 @@
+// RegisterScreen.tsx
+import { Ionicons } from "@expo/vector-icons";
+import { Picker } from "@react-native-picker/picker";
 import axios from "axios";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
-  Keyboard,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View,
 } from "react-native";
-import RNPickerSelect from "react-native-picker-select";
 import Toast from "react-native-toast-message";
-import { USER_URL } from "./base_url";
+import api_url from "../../backend/routes/base_url"; // ensure this is correct (e.g. http://10.0.2.2:3000 or your server url)
 
-const RegisterScreen = () => {
+export default function RegisterScreen() {
   const router = useRouter();
 
-  // 🔹 Form state
+  // form states
   const [role, setRole] = useState("");
   const [name, setName] = useState("");
-  const [company, setCompany] = useState("");
-  const [email, setEmail] = useState("");
   const [mobile, setMobile] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [pan, setPan] = useState("");
+  const [aadhaar, setAadhaar] = useState("");
+  const [isFormUnlocked, setIsFormUnlocked] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // 🔹 Derived state
-  const inputsDisabled = !role;
+  // corporate modal & fields
+  const [modalVisible, setModalVisible] = useState(false);
+  const [corporateType, setCorporateType] = useState("");
+  const [corporateName, setCorporateName] = useState("");
+  const [corporatePan, setCorporatePan] = useState("");
+  const [address, setAddress] = useState("");
+  const [city, setCity] = useState("");
+  const [stateName, setStateName] = useState(""); // avoid JS reserved 'state'
+  const [pin, setPin] = useState("");
+  const [gst, setGst] = useState("");
 
-  
-  // 🔹 Helpers
-  const validateMobile = (number: string) => /^[6-9]\d{9}$/.test(number);
+  // For non-admin users: require corporateId to link
+  const [corporateIdForUser, setCorporateIdForUser] = useState("");
 
-  // 🔹 Registration handler
+  const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+  const aadhaarRegex = /^[0-9]{12}$/;
+  const mobileRegex = /^[6-9]\d{9}$/;
+  const pinRegex = /^[1-9][0-9]{5}$/;
+
+  // Unlock form on valid PAN/Aadhaar (but only when user completes correct length or onBlur)
+  const handlePanChange = (value: string) => {
+    const upper = value.toUpperCase();
+    setPan(upper);
+    setIsFormUnlocked(panRegex.test(upper));
+  };
+  const handleAadhaarChange = (value: string) => {
+    const cleaned = value.replace(/[^0-9]/g, "");
+    setAadhaar(cleaned);
+    setIsFormUnlocked(aadhaarRegex.test(cleaned));
+  };
+
+  const handleRoleChange = (val: string) => {
+    setRole(val);
+    // reset identifiers when role changes
+    setPan("");
+    setAadhaar("");
+    setIsFormUnlocked(false);
+  };
+
+  const handleCorporatePanChange = (val: string) => setCorporatePan(val.toUpperCase());
+
+  // Validation helper - returns {ok, message}
+  const validateBeforeSubmit = () => {
+    if (!role) return { ok: false, message: "Select a role" };
+    if (!name) return { ok: false, message: "Enter full name" };
+    if (!mobile || !mobileRegex.test(mobile)) return { ok: false, message: "Enter a valid 10-digit mobile number" };
+    if (!password || password.length < 6) return { ok: false, message: "Password must be at least 6 characters" };
+    if (password !== confirmPassword) return { ok: false, message: "Passwords do not match" };
+
+    if (role === "Admin") {
+      if (!pan || !panRegex.test(pan)) return { ok: false, message: "Enter valid PAN (Admin)" };
+      // corporateInfo required for Admin per your schema:
+      if (!corporateType || !corporateName || !corporatePan || !address || !city || !stateName || !pin)
+        return { ok: false, message: "Complete corporate information for Admin" };
+      if (!pinRegex.test(pin)) return { ok: false, message: "Enter valid PIN (6 digits)" };
+      if (!panRegex.test(corporatePan)) return { ok: false, message: "Enter valid Corporate PAN" };
+    } else {
+      // non-admin must provide corporateId (link to existing corporate created by an Admin)
+      if (!corporateIdForUser) return { ok: false, message: "Enter corporateId to link user to organization" };
+    }
+    return { ok: true, message: "" };
+  };
+
+  // ===== MAIN REGISTER =====
   const handleRegister = async () => {
-    if (!name || !role || !password || !confirmPassword || !mobile) {
-      Toast.show({ type: "error", text1: "Please fill all required fields" });
-      return;
-    }
-
-    if (!validateMobile(mobile)) {
-      Toast.show({ type: "error", text1: "Invalid mobile number" });
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      Toast.show({ type: "error", text1: "Passwords do not match" });
-      return;
-    }
-
-    if (role !== "Admin" && !company) {
-      Toast.show({
-        type: "error",
-        text1: "Company name is required for Sale or Operation users",
-      });
+    const v = validateBeforeSubmit();
+    if (!v.ok) {
+      Toast.show({ type: "error", text1: "Validation", text2: v.message, position: "top" });
       return;
     }
 
     setLoading(true);
-
     try {
+      // Build payload according to your schema
       const payload: any = {
         name,
-        role,
-        email,
         mobile,
+        email,
         password,
+        role,
       };
 
-      if (role !== "Admin") payload.company = company;
+      if (role === "Admin") {
+        payload.panNumber = pan;
+        payload.corporateInfo = {
+          companyName: corporateName,
+          companyType: corporateType,
+          companyPan: corporatePan,
+          companyGst: gst || "",
+          address,
+          city,
+          state: stateName,
+          pincode: pin,
+        };
+        // corporateId will be auto-generated by schema pre-save
+      } else {
+        // non-admin: include aadhaar if available and corporateId linking
+        if (aadhaar) payload.aadhaarNumber = aadhaar;
+        payload.corporateId = corporateIdForUser;
+      }
 
-      //await axios.post(`${USER_URL}/register`, payload);
-      const response = await axios.post(`${USER_URL}/register`, payload, {headers: {"Content-Type" : "application/json",},});
+      console.log("Register payload:", payload);
 
-      Toast.show({ type: "success", text1: "User registered successfully!" });
-      router.replace("/"); // navigate back to login
+      const res = await axios.post(`${api_url}/auth/register`, payload, { timeout: 15000 });
+
+      console.log("Register response:", res?.data);
+      if (res?.data?.success) {
+        Toast.show({ type: "success", text1: "Registration Success", text2: "You may login now", position: "top" });
+        // navigate to login screen - adjust path if your app uses different route
+        router.replace("/myscript/LoginScreen");
+      } else {
+        // server responded but success is false
+        const msg = res?.data?.message || "Registration failed";
+        Toast.show({ type: "error", text1: "Register failed", text2: msg, position: "top" });
+      }
     } catch (err: any) {
-      console.error("Registration error:", err.response?.data || err.message);
-      Toast.show({
-        type: "error",
-        text1: err.response?.data?.message || "Something went wrong",
-      });
+      console.error("Register error (axios):", err?.response ?? err?.message ?? err);
+      const serverMsg = err?.response?.data?.message || err?.message || "Network or server error";
+      Toast.show({ type: "error", text1: "Error", text2: serverMsg, position: "top" });
     } finally {
       setLoading(false);
     }
   };
 
-  // 🔹 Back button
-  const handleBackToLogin = () => {
-    router.replace("/");
-  };
+  const isRegisterEnabled =
+    (role === "Admin" ? isFormUnlocked : true) &&
+    name &&
+    mobile &&
+    password &&
+    confirmPassword &&
+    (role === "Admin"
+      ? corporateType && corporateName && corporatePan && address && city && stateName && pin
+      : corporateIdForUser);
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
-    >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <ScrollView
-          contentContainerStyle={styles.container}
-          keyboardShouldPersistTaps="handled"
-        >
-          <Text style={styles.title}>Register New User</Text>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: "#fff" }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <Text style={styles.title}>User Registration</Text>
 
-          {/* 🔸 Role dropdown */}
-          <RNPickerSelect
-            onValueChange={setRole}
-            value={role}
-            placeholder={{ label: "Select Role *", value: "" }}
-            items={[
-              { label: "Admin", value: "Admin" },
-              { label: "Sale", value: "Sale" },
-              { label: "Operation", value: "Operation" },
-            ]}
-            style={{
-              inputIOS: styles.input,
-              inputAndroid: styles.input,
-            }}
-          />
+        <Text style={styles.label}>Select User Role</Text>
+        <View style={styles.pickerContainer}>
+          <Picker selectedValue={role} onValueChange={handleRoleChange}>
+            <Picker.Item label="Select User Role" value="" />
+            <Picker.Item label="Admin" value="Admin" />
+            <Picker.Item label="Sale" value="Sale" />
+            <Picker.Item label="Operation" value="Operation" />
+          </Picker>
+        </View>
 
-          {/* 🔸 Conditional company field */}
-          {role && role !== "Admin" && (
-            <TextInput
-              placeholder="Company Name *"
-              value={company}
-              onChangeText={setCompany}
-              style={styles.input}
-              editable={!inputsDisabled && !loading}
-            />
-          )}
-
-          {/* 🔸 Common fields */}
+        {/* PAN or Aadhaar */}
+        {role === "Admin" ? (
           <TextInput
-            placeholder="Full Name *"
-            value={name}
-            onChangeText={setName}
+            placeholder="Enter PAN (e.g. ABCDE1234F)"
             style={styles.input}
-            editable={!inputsDisabled && !loading}
+            value={pan}
+            onChangeText={handlePanChange}
+            maxLength={10}
+            autoCapitalize="characters"
           />
-
+        ) : role ? (
           <TextInput
-            placeholder="Email (optional)"
-            value={email}
-            onChangeText={setEmail}
+            placeholder="Enter Aadhaar (optional for non-admin)"
             style={styles.input}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            editable={!inputsDisabled && !loading}
+            value={aadhaar}
+            onChangeText={handleAadhaarChange}
+            maxLength={12}
+            keyboardType="number-pad"
           />
+        ) : null}
 
-          <TextInput
-            placeholder="Mobile Number *"
-            value={mobile}
-            onChangeText={setMobile}
-            style={styles.input}
-            keyboardType="phone-pad"
-            editable={!inputsDisabled && !loading}
-          />
+        {/* non-admin: link corporateId */}
+        {role && role !== "Admin" && (
+          <>
+            <Text style={[styles.label, { marginTop: 8 }]}>Corporate ID (link to Admin org)</Text>
+            <TextInput placeholder="Enter corporateId" style={styles.input} value={corporateIdForUser} onChangeText={setCorporateIdForUser} />
+          </>
+        )}
 
-          <TextInput
-            placeholder="Password *"
-            value={password}
-            onChangeText={setPassword}
-            style={styles.input}
-            secureTextEntry
-            editable={!inputsDisabled && !loading}
-          />
+        {/* Full form (unlocked for Admins when PAN valid, non-admins when corporateId provided) */}
+        {((role === "Admin" && isFormUnlocked) || (role && role !== "Admin")) && (
+          <>
+            <TextInput placeholder="Full Name" style={styles.input} value={name} onChangeText={setName} />
+            <TextInput placeholder="Mobile" style={styles.input} value={mobile} onChangeText={setMobile} keyboardType="number-pad" />
+            <TextInput placeholder="Email" style={styles.input} value={email} onChangeText={setEmail} keyboardType="email-address" />
+            <TextInput placeholder="Password" style={styles.input} value={password} onChangeText={setPassword} secureTextEntry />
+            <TextInput placeholder="Confirm Password" style={styles.input} value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
 
-          <TextInput
-            placeholder="Confirm Password *"
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            style={styles.input}
-            secureTextEntry
-            editable={!inputsDisabled && !loading}
-          />
-
-          {/* 🔹 Register Button */}
-          <TouchableOpacity
-            style={[
-              styles.button,
-              (inputsDisabled || loading) && { backgroundColor: "#aaa" },
-            ]}
-            onPress={handleRegister}
-            disabled={inputsDisabled || loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Register</Text>
+            {/* Corporate info modal trigger (Admin only) */}
+            {role === "Admin" && (
+              <>
+                <TouchableOpacity style={styles.corporateIcon} onPress={() => setModalVisible(true)}>
+                  <Ionicons name="business-outline" size={28} color="#007AFF" />
+                  <Text style={styles.corporateText}> Corporate Info (required for Admin)</Text>
+                </TouchableOpacity>
+              </>
             )}
-          </TouchableOpacity>
 
-          {/* 🔹 Back to login button */}
-          <View style={styles.backContainer}>
-            <TouchableOpacity onPress={handleBackToLogin}>
-              <Text style={styles.backText}>← Back to Login</Text>
+            <TouchableOpacity
+              style={[styles.registerBtn, { opacity: isRegisterEnabled ? 1 : 0.5 }]}
+              onPress={handleRegister}
+              disabled={!isRegisterEnabled || loading}
+            >
+              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.registerText}>Register</Text>}
             </TouchableOpacity>
+          </>
+        )}
+
+        {/* Corporate Modal (Admin) */}
+        <Modal visible={modalVisible} animationType="slide" transparent>
+          <View style={styles.modalContainer}>
+            <ScrollView style={styles.modalContent} keyboardShouldPersistTaps="handled">
+              <Text style={styles.modalTitle}>Corporate Information</Text>
+              <Picker selectedValue={corporateType} onValueChange={setCorporateType}>
+                <Picker.Item label="Select Corporate Type" value="" />
+                <Picker.Item label="Sole Proprietor" value="Sole Proprietor" />
+                <Picker.Item label="Partnership" value="Partnership" />
+                <Picker.Item label="Private Limited" value="Private Limited" />
+                <Picker.Item label="LLP" value="LLP" />
+              </Picker>
+
+              <TextInput placeholder="Company Name" style={styles.input} value={corporateName} onChangeText={setCorporateName} />
+              <TextInput placeholder="Company PAN" style={styles.input} value={corporatePan} onChangeText={handleCorporatePanChange} maxLength={10} autoCapitalize="characters" />
+              <TextInput placeholder="Address" style={styles.input} value={address} onChangeText={setAddress} />
+              <TextInput placeholder="City" style={styles.input} value={city} onChangeText={setCity} />
+              <TextInput placeholder="State" style={styles.input} value={stateName} onChangeText={setStateName} />
+              <TextInput placeholder="PIN" style={styles.input} value={pin} onChangeText={setPin} keyboardType="number-pad" />
+              <TextInput placeholder="GST (optional)" style={styles.input} value={gst} onChangeText={setGst} />
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.iconButton}>
+                  <Ionicons name="checkmark-circle" size={28} color="#007AFF" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.iconButton}>
+                  <Ionicons name="close-circle" size={28} color="red" />
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
-        </ScrollView>
-      </TouchableWithoutFeedback>
-      <Toast />
+        </Modal>
+
+        <Toast />
+      </ScrollView>
     </KeyboardAvoidingView>
   );
-};
-
-export default RegisterScreen;
+}
 
 const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    padding: 15,
-    justifyContent: "center",
-    backgroundColor: "#f5f5f5",
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    marginBottom: 20,
-    alignSelf: "center",
-  },
-  input: {
-    height: 60,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    marginBottom: 15,
-    paddingHorizontal: 15,
-    backgroundColor: "#fff",
-  },
-  button: {
-    height: 50,
-    borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 10,
-    backgroundColor: "#007bff",
-  },
-  buttonText: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 18,
-  },
-  backContainer: {
-    alignItems: "center",
-    marginTop: 15,
-  },
-  backText: {
-    color: "#007bff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
+  container: { padding: 20, paddingBottom: 60 },
+  title: { fontSize: 22, fontWeight: "700", marginBottom: 20, textAlign: "center" },
+  label: { fontSize: 16, fontWeight: "600", marginTop: 10, marginBottom: 5 },
+  input: { borderWidth: 1, borderColor: "#ccc", borderRadius: 10, padding: 10, marginVertical: 6 },
+  pickerContainer: { borderWidth: 1, borderColor: "#ccc", borderRadius: 10, marginVertical: 6 },
+  corporateIcon: { flexDirection: "row", alignItems: "center", marginVertical: 15, alignSelf: "center" },
+  corporateText: { fontSize: 16, color: "#007AFF", marginLeft: 5 },
+  registerBtn: { backgroundColor: "#007AFF", padding: 12, borderRadius: 10, alignItems: "center", marginTop: 10 },
+  registerText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  modalContainer: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", padding: 20 },
+  modalContent: { backgroundColor: "#fff", borderRadius: 12, padding: 20, maxHeight: "90%" },
+  modalTitle: { fontSize: 18, fontWeight: "700", textAlign: "center", marginBottom: 10 },
+  modalActions: { flexDirection: "row", justifyContent: "space-around", marginTop: 10 },
+  iconButton: { padding: 10 },
 });
