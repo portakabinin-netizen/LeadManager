@@ -1,4 +1,4 @@
-const Ledger = require("../models/AllCollectionSchema");
+const { Users, Corporates } = require("../models/UsersCorporates");
 
 /**
  * Create Ledger Entry

@@ -76,28 +76,29 @@ import { DecodedToken } from "../../hooks/interface";
 
     setLoading(true);
     try {
-      const res = await axios.post(`${api_url}/auth/login`, { mobile, password }, { headers: { "Content-Type": "application/json" } });
+         const res = await axios.post(`${api_url}/auth/login`, { mobile, password }, { headers: { "Content-Type": "application/json" } });
 
       if (!res.data.success) throw new Error(res.data.message || "Login failed");
 
       const { token } = res.data;
-    
+          
       const decoded = jwtDecode<DecodedToken>(token);
-
+      
       // ✅ store session object as JSON
             const userSession = {
               token,
               userId: decoded.userId,
-              username: decoded.username,
+              username: decoded.name,
               role: decoded.role,
             };
         await AsyncStorage.setItem("userSession", JSON.stringify(userSession));
 
-      Toast.show({ type: "success", text1: "Login Successful", text2: `Welcome, ${decoded.username}!`, position: "top" });
+      Toast.show({ type: "success", text1: "Login Successful", text2: `Welcome, ${decoded.name}!`, position: "top" });
      
-      const rolePath = `/${decoded.role.toLowerCase()}` as never ; 
-      console.log(rolePath);
-      router.replace(rolePath);
+      //let rolePath = `/roles/${decoded.role.toLowerCase()}`;
+     const rolePath ="/myscript";
+                   
+        router.replace(rolePath as any);
       
       } catch (error: any) {
       Toast.show({ type: "error", text1: "Login Error", text2: error.response?.data?.message || "Invalid credentials or network error.", position: "top" });
@@ -137,7 +138,7 @@ import { DecodedToken } from "../../hooks/interface";
     }
   };
 
-  const handleRegister = () => router.push("../myscript/RegisterScreen");
+  const handleRegister = () => router.push("../myscript/userRegistration");
   const handleExit = () => BackHandler.exitApp();
 
   return (
@@ -148,7 +149,7 @@ import { DecodedToken } from "../../hooks/interface";
           <View style={styles.header}>
             <Image source={require("../../assets/images/icon.png")} style={styles.logo} />
             <Text style={styles.headerTitle}>Lead Manager</Text>
-            <Text style={styles.headerSubtitle}>Smart Business Control</Text>
+            <Text style={styles.headerSubtitle}>Management Information Reports(MIS)</Text>
           </View>
 
           {/* BODY */}
@@ -282,7 +283,7 @@ const styles = StyleSheet.create({
     width: "100%",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12, // gives breathing room
+    paddingVertical: 12, 
   },
   title: { fontSize: 26, fontWeight: "700", color: "#111827", marginBottom: 20 },
 

@@ -12,6 +12,5 @@
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.ts",
-    "expo-env.d.ts"
-, "app/myscript/leadservices.tsd"  ]
+    "expo-env.d.ts", "backend/controller/leadService.js",   ]
 }

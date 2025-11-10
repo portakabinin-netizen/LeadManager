@@ -1,0 +1,12 @@
+[
+  { "id": "1", "name": "Recent", "icon": "home", "screen": "Recent", "role": "Sale", "selected": false },
+  { "id": "2", "name": "Engaged", "icon": "support-agent", "screen": "Engaged", "role": "Sale", "selected": false },
+  { "id": "3", "name": "Accepted", "icon": "check-circle-outline", "screen": "Accepted", "role": "Sale", "selected": false },
+  { "id": "4", "name": "Restore", "icon": "restore", "screen": "Restore", "role": "Sale", "selected": false },
+  { "id": "5", "name": "Recycle", "icon": "delete", "screen": "Recycle", "role": "Sale", "selected": false },
+
+  { "id": "6", "name": "Dashboard", "icon": "home", "screen": "DashboardScreen", "role": "Admin", "selected": false },
+  { "id": "7", "name": "Users", "icon": "people", "screen": "LeadsScreen", "role": "Admin", "selected": false },
+  { "id": "8", "name": "Reports", "icon": "bar-chart", "screen": "ReportsScreen", "role": "Admin", "selected": false },
+  { "id": "9", "name": "Settings", "icon": "settings", "screen": "SettingsScreen", "role": "Admin", "selected": false }
+]

@@ -8,9 +8,9 @@ const corporateService = require("../controller/corporateService");
 const ledgerService = require("../controller/ledgerService");
 const userService = require("../controller/userService");
 
-// Service mapping
+// ✅ Service Mapping (No TypeScript syntax)
 const serviceMap = {
-  lead: leadService,
+  leads: leadService,
   corporate: corporateService,
   ledger: ledgerService,
   user: userService,
@@ -19,7 +19,9 @@ const serviceMap = {
 // ✅ Apply JWT verification to all routes below
 router.use(authMiddleware);
 
-// ✅ Generic CREATE
+/**
+ * ✅ CREATE (POST)
+ */
 router.post("/:type/create", async (req, res) => {
   const { type } = req.params;
   const service = serviceMap[type];
@@ -29,21 +31,24 @@ router.post("/:type/create", async (req, res) => {
   }
 
   try {
-    // Example: attach corporate info if user is Admin or corporate user
     const payload = { ...req.body };
-    if (req.user.role !== "SuperAdmin" && req.user.corporateId) {
+
+    // Attach corporateId for non-admins
+    if (req.user.role !== "Admin" && req.user.corporateId) {
       payload.corporateId = req.user.corporateId;
     }
 
     const result = await service.create(payload);
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error(err);
+    console.error("Error creating record:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// ✅ Generic LIST
+/**
+ * ✅ LIST (GET)
+ */
 router.get("/:type/list", async (req, res) => {
   const { type } = req.params;
   const service = serviceMap[type];
@@ -54,19 +59,21 @@ router.get("/:type/list", async (req, res) => {
 
   try {
     const filters = {};
-    if (req.user.role !== "SuperAdmin" && req.user.corporateId) {
+    if (req.user.role !== "Admin" && req.user.corporateId) {
       filters.corporateId = req.user.corporateId;
     }
 
     const result = await service.list(filters);
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error(err);
+    console.error("Error listing records:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// ✅ Generic GET BY ID
+/**
+ * ✅ GET BY ID (GET)
+ */
 router.get("/:type/:id", async (req, res) => {
   const { type, id } = req.params;
   const service = serviceMap[type];
@@ -80,12 +87,14 @@ router.get("/:type/:id", async (req, res) => {
     if (!result) return res.status(404).json({ success: false, message: "Not found" });
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error(err);
+    console.error("Error fetching record:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// ✅ Generic UPDATE
+/**
+ * ✅ UPDATE (PUT)
+ */
 router.put("/:type/:id", async (req, res) => {
   const { type, id } = req.params;
   const service = serviceMap[type];
@@ -98,12 +107,14 @@ router.put("/:type/:id", async (req, res) => {
     const result = await service.update(id, req.body);
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error(err);
+    console.error("Error updating record:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// ✅ Generic DELETE
+/**
+ * ✅ DELETE (DELETE)
+ */
 router.delete("/:type/:id", async (req, res) => {
   const { type, id } = req.params;
   const service = serviceMap[type];
@@ -116,8 +127,24 @@ router.delete("/:type/:id", async (req, res) => {
     await service.remove(id);
     res.json({ success: true, message: "Deleted successfully" });
   } catch (err) {
-    console.error(err);
+    console.error("Error deleting record:", err);
     res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+/**
+ * ✅ GET LEADS BY STATUS
+ */
+router.get("/leads/status/:status", async (req, res, next) => {
+  try {
+    const { status } = req.params;
+    const { corporateId } = req.query;
+
+    const leads = await leadService.getLeadsByStatus(status, corporateId);
+    res.json({ success: true, data: leads });
+  } catch (err) {
+    console.error("Error in /leads/status route:", err);
+    next(err);
   }
 });
 

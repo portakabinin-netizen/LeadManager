@@ -2,101 +2,69 @@ const express = require("express");
 const router = express.Router();
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
-const { Users } = require("../models/AllCollectionSchema");
+const { Users } = require("../models/UsersCorporates");
 require("dotenv").config();
 
-/**
- * 🧩 Register User
- */
+/* 🔹 User Registration */
 router.post("/register", async (req, res) => {
   try {
-    const {
-      name,
-      mobile,
-      email,
-      password,
-      role,
-      panNumber,
-      aadhaarNumber,
-      corporateId,
-      corporateInfo,
-    } = req.body;
+    const { userMobile, userAadhar } = req.body;
 
-    // validation
-    if (!name || !mobile || !password || !role) {
-      return res.status(400).json({ success: false, message: "All fields required" });
-    }
-
-    const existing = await Users.findOne({ mobile });
-    if (existing) {
-      return res.status(400).json({ success: false, message: "Mobile already registered" });
-    }
-
-    
-    // create user
-    const user = new Users({
-      name,
-      mobile,
-      email,
-      role,
-      password,
-      panNumber,
-      aadhaarNumber,
-      corporateId,
-      corporateInfo,
+    // check duplicate mobile or aadhar
+    const existing = await Users.findOne({
+      $or: [{ userMobile }, { userAadhar }]
     });
+    if (existing) {
+      return res.status(400).json({ success: false, message: "User already exists" });
+    }
 
-    const savedUser = await user.save();
+    const newUser = new Users(req.body);
+    await newUser.save();
 
-    return res.json({ success: true, data: savedUser });
+    res.status(201).json({ success: true, message: "User registered successfully" });
   } catch (err) {
-    console.error("Register error:", err);
-    res.status(500).json({ success: false, message: err.message });
+    console.error(err);
+    res.status(400).json({ success: false, message: err.message });
   }
 });
 
-/**
- * 🔑 Login User
- */
+/* 🔹 Corporate Update */
+router.put("/corporate/:id", async (req, res) => {
+  try {
+    const user = await Users.findById(req.params.id);
+    if (!user || user.userRole !== "CorpAdmin") {
+      return res.status(404).json({ success: false, message: "Corporate Admin not found" });
+    }
+
+    user.linkedCorporate = req.body.linkedCorporate;
+    await user.save();
+
+    res.json({ success: true, message: "Corporate updated successfully" });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+/* 🔹 Login */
 router.post("/login", async (req, res) => {
   try {
-    const { mobile, password } = req.body;
+    const { userMobile, userPassword } = req.body;
+    const user = await Users.findOne({ userMobile });
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
-    if (!mobile || !password)
-      return res.status(400).json({ success: false, message: "Mobile and password required" });
+    const validPass = await bcrypt.compare(userPassword, user.userPassword);
+    if (!validPass) return res.status(401).json({ success: false, message: "Invalid password" });
 
-    const user = await Users.findOne({ mobile });
-    if (!user)
-      return res.status(404).json({ success: false, message: "User not found" });
+    const payload = {
+      userId: user._id,
+      userRole: user.userRole,
+      corporateName: user.linkedCorporate?.corporateName || "",
+    };
 
-    const match = await bcrypt.compare(password, user.password);
-    if (!match)
-      return res.status(401).json({ success: false, message: "Invalid credentials" });
-
-    const token = jwt.sign(
-      {
-        userId: user._id,
-        role: user.role,
-        corporateId: user.corporateId || null,
-        name: user.name,
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: "60d" }
-    );
-
-    res.json({
-      success: true,
-      token,
-      user: {
-        _id: user._id,
-        name: user.name,
-        role: user.role,
-        corporateId: user.corporateId,
-      },
-    });
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "7d" });
+    res.json({ success: true, token });
   } catch (err) {
-    console.error("Login error:", err);
-    res.status(500).json({ success: false, message: err.message });
+    res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 });
 

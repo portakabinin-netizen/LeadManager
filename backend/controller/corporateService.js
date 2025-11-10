@@ -1,4 +1,4 @@
-const Corporate = require("../models/AllCollectionSchema");
+const Corporate = require("../models/UsersCorporates");
 
 /**
  * Create Corporate

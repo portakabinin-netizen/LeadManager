@@ -1,54 +1,70 @@
-const { Users } = require("../models/AllCollectionSchema");
+const { Users, Corporates } = require("../models/UsersCorporates");
 const bcrypt = require("bcryptjs");
 
-/**
- * Create new user (Admin or Normal)
- */
+/** 🧱 CREATE USER (Admin / Normal) */
 exports.create = async (data) => {
-  // check mobile duplication
-  const existing = await Users.findOne({ mobile: data.mobile });
+  const { userMobile, userPassword, corporateId } = data;
+
+  const existing = await Users.findOne({ userMobile });
   if (existing) throw new Error("Mobile number already registered");
 
-  // hash password if not already hashed
-  const hashedPassword = await bcrypt.hash(data.password, 10);
+  const hashedPassword = await bcrypt.hash(userPassword, 10);
 
   const user = new Users({
     ...data,
-    password: hashedPassword,
+    userPassword: hashedPassword,
   });
 
-  return await user.save();
+  await user.save();
+
+  // 🔗 If linked to a corporate, add both-way linkage
+  if (corporateId) {
+    const corp = await Corporates.findById(corporateId);
+    if (corp) {
+      corp.linkedUsers.push(user._id);
+      await corp.save();
+      user.corporateId = corp._id;
+      await user.save();
+    }
+  }
+
+  return user;
 };
 
-/**
- * List all users
- */
+/** 📜 LIST USERS */
 exports.list = async (filters = {}) => {
   return await Users.find(filters)
-    .select("-password") // hide password
-    .populate("createdBy updatedBy", "name");
+    .select("-userPassword")
+    .populate("corporateId", "corporateName corporatePAN");
 };
 
-/**
- * Get single user by ID
- */
+/** 🔍 GET USER BY ID */
 exports.getById = async (id) => {
-  return await Users.findById(id).select("-password").populate("createdBy updatedBy", "name");
+  return await Users.findById(id)
+    .select("-userPassword")
+    .populate("corporateId", "corporateName corporatePAN");
 };
 
-/**
- * Update user info
- */
+/** ✏️ UPDATE USER */
 exports.update = async (id, data) => {
-  if (data.password) {
-    data.password = await bcrypt.hash(data.password, 10);
+  if (data.userPassword) {
+    data.userPassword = await bcrypt.hash(data.userPassword, 10);
   }
-  return await Users.findByIdAndUpdate(id, data, { new: true }).select("-password");
+  return await Users.findByIdAndUpdate(id, data, {
+    new: true,
+  }).select("-userPassword");
 };
 
-/**
- * Delete user
- */
+/** 🗑️ DELETE USER */
 exports.remove = async (id) => {
+  const user = await Users.findById(id);
+  if (!user) throw new Error("User not found");
+
+  if (user.corporateId) {
+    await Corporates.findByIdAndUpdate(user.corporateId, {
+      $pull: { linkedUsers: user._id },
+    });
+  }
+
   return await Users.findByIdAndDelete(id);
 };
