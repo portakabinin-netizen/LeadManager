@@ -52,8 +52,9 @@ export const registerNonAdmin = async (formData) => {
       userAadhar: formData.userAadhar,
       userDoB: formData.userDoB,
       accessCorporate: {
-        corporateId: formData.corporateId?.trim() || null, // ✅ handle empty as null
-        accessAllow: !!formData.corporateId, // true if ID provided
+        corpAdminId : "",
+        corporateId:  "", 
+        accessAllow: false, 
       },
     };
 

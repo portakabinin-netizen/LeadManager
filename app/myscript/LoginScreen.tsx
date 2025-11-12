@@ -22,22 +22,22 @@ import Toast from "react-native-toast-message";
 import api_url from "../../backend/routes/base_url";
 import { DecodedToken } from "../../hooks/interface";
 
-  const LoginScreen: React.FC = () => {
+const LoginScreen: React.FC = () => {
   const router = useRouter();
 
-  // fields + ui state
+  // UI states
   const [mobile, setMobile] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<{ mobile?: string; password?: string }>({});
   const [loading, setLoading] = useState(false);
 
-  // forgot flow
+  // Forgot password
   const [forgotMode, setForgotMode] = useState(false);
   const [forgotValue, setForgotValue] = useState("");
   const [forgotRole, setForgotRole] = useState<"Admin" | "User">("User");
   const [forgotLoading, setForgotLoading] = useState(false);
 
-  // validation (onBlur)
+  // ✅ Validation onBlur
   const validateField = (field: "mobile" | "password", value: string) => {
     let error = "";
 
@@ -59,97 +59,159 @@ import { DecodedToken } from "../../hooks/interface";
     }
   };
 
-  // clear errors while typing
+  // ✅ Handle typing
   const handleInputChange = (field: "mobile" | "password", value: string) => {
     setErrors((prev) => ({ ...prev, [field]: "" }));
     if (field === "mobile") setMobile(value);
     else setPassword(value);
   };
 
-  // login
+  // ✅ Login function
   const handleLogin = async () => {
     if (!mobile || !password) {
-      Toast.show({ type: "error", text1: "Missing Fields", text2: "Please enter both mobile and password.", position: "top" });
+      Toast.show({
+        type: "error",
+        text1: "Missing Fields",
+        text2: "Please enter both mobile and password.",
+        position: "top",
+      });
       return;
     }
+
     if (errors.mobile || errors.password) return;
 
     setLoading(true);
     try {
-         const res = await axios.post(`${api_url}/auth/login`, { mobile, password }, { headers: { "Content-Type": "application/json" } });
+      console.log("🔹 Sending login request to:", `${api_url}/auth/login`);
+
+      const res = await axios.post(
+        `${api_url}/auth/login`,
+        { mobile, password },
+        { headers: { "Content-Type": "application/json" } }
+      );
+
+      console.log("✅ Login response:", res.data);
 
       if (!res.data.success) throw new Error(res.data.message || "Login failed");
 
       const { token } = res.data;
-          
       const decoded = jwtDecode<DecodedToken>(token);
-      
-      // ✅ store session object as JSON
-            const userSession = {
-              token,
-              userId: decoded.userId,
-              username: decoded.name,
-              role: decoded.role,
-            };
-        await AsyncStorage.setItem("userSession", JSON.stringify(userSession));
 
-      Toast.show({ type: "success", text1: "Login Successful", text2: `Welcome, ${decoded.name}!`, position: "top" });
-     
-      //let rolePath = `/roles/${decoded.role.toLowerCase()}`;
-     const rolePath ="/myscript";
-                   
-        router.replace(rolePath as any);
-      
-      } catch (error: any) {
-      Toast.show({ type: "error", text1: "Login Error", text2: error.response?.data?.message || "Invalid credentials or network error.", position: "top" });
+      const userSession = {
+        token,
+        userId: decoded.userId,
+        username: decoded.name,
+        role: decoded.role,
+      };
+
+      try {
+        await AsyncStorage.setItem("userSession", JSON.stringify(userSession));
+      } catch (err) {
+        console.error("❌ Failed to store session:", err);
+      }
+
+      Toast.show({
+        type: "success",
+        text1: "Login Successful",
+        text2: `Welcome, ${decoded.name}!`,
+        position: "top",
+      });
+
+      // navigate to role path
+      const rolePath = "/myscript";
+      router.replace(rolePath);
+    } catch (error: any) {
+      console.error("❌ Login error:", error.response?.data || error.message);
+      Toast.show({
+        type: "error",
+        text1: "Login Error",
+        text2: error.response?.data?.message || "Invalid credentials or network error.",
+        position: "top",
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  // forgot password
+  // ✅ Forgot password
   const handleForgotPassword = async () => {
     if (!forgotValue.trim()) {
-      Toast.show({ type: "error", text1: "Missing Field", text2: `Enter your ${forgotRole === "Admin" ? "PAN number" : "Aadhaar number"}.`, position: "top" });
+      Toast.show({
+        type: "error",
+        text1: "Missing Field",
+        text2: `Enter your ${forgotRole === "Admin" ? "PAN number" : "Aadhaar number"}.`,
+        position: "top",
+      });
       return;
     }
 
     setForgotLoading(true);
     try {
-      const endpoint = forgotRole === "Admin"
-        ? `${api_url}/auth/forgot-password/pan`
-        : `${api_url}/auth/forgot-password/aadhaar`;
+      const endpoint =
+        forgotRole === "Admin"
+          ? `${api_url}/auth/forgot-password/pan`
+          : `${api_url}/auth/forgot-password/aadhaar`;
 
-      const payload = forgotRole === "Admin" ? { pan: forgotValue.toUpperCase() } : { aadhaar: forgotValue };
+      const payload = forgotRole === "Admin"
+        ? { pan: forgotValue.toUpperCase() }
+        : { aadhaar: forgotValue };
 
-      const res = await axios.post(endpoint, payload, { headers: { "Content-Type": "application/json" } });
+      const res = await axios.post(endpoint, payload, {
+        headers: { "Content-Type": "application/json" },
+      });
 
       if (res.data.success) {
-        Toast.show({ type: "success", text1: "Password Reset", text2: res.data.message, position: "top" });
+        Toast.show({
+          type: "success",
+          text1: "Password Reset",
+          text2: res.data.message,
+          position: "top",
+        });
         setForgotMode(false);
         setForgotValue("");
       } else {
-        Toast.show({ type: "error", text1: "Error", text2: res.data.message, position: "top" });
+        Toast.show({
+          type: "error",
+          text1: "Error",
+          text2: res.data.message,
+          position: "top",
+        });
       }
     } catch (err: any) {
-      Toast.show({ type: "error", text1: "Network Error", text2: err.response?.data?.message || "Try again later.", position: "top" });
+      console.error("❌ Forgot password error:", err.response?.data || err.message);
+      Toast.show({
+        type: "error",
+        text1: "Network Error",
+        text2: err.response?.data?.message || "Try again later.",
+        position: "top",
+      });
     } finally {
       setForgotLoading(false);
     }
   };
 
-  const handleRegister = () => router.push("../myscript/userRegistration");
-  const handleExit = () => BackHandler.exitApp();
+  // ✅ Register and Exit
+  const handleRegister = () => router.push("/myscript/userRegistration");
+  const handleExit = () => {
+    if (Platform.OS === "android") BackHandler.exitApp();
+    else Toast.show({ type: "info", text1: "Exit", text2: "Use Home button to close the app." });
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#f9fafb" }}>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={{ flex: 1 }}
+      >
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           {/* HEADER */}
           <View style={styles.header}>
-            <Image source={require("../../assets/images/icon.png")} style={styles.logo} />
+            <Image
+              source={require("../../assets/images/icon.png")}
+              style={styles.logo}
+            />
             <Text style={styles.headerTitle}>Lead Manager</Text>
-            <Text style={styles.headerSubtitle}>Management Information Reports(MIS)</Text>
+            <Text style={styles.headerSubtitle}>Management Information Reports (MIS)</Text>
           </View>
 
           {/* BODY */}
@@ -159,7 +221,7 @@ import { DecodedToken } from "../../hooks/interface";
                 <Text style={styles.title}>User Login</Text>
 
                 <TextInput
-                  style={[styles.input, errors.mobile ? { borderColor: "#ef4444" } : {}]}
+                  style={[styles.input, errors.mobile && { borderColor: "#ef4444" }]}
                   placeholder="Mobile Number"
                   keyboardType="number-pad"
                   value={mobile}
@@ -167,23 +229,31 @@ import { DecodedToken } from "../../hooks/interface";
                   onChangeText={(text) => handleInputChange("mobile", text)}
                   onBlur={() => validateField("mobile", mobile)}
                 />
-                {errors.mobile ? <Text style={styles.errorText}>{errors.mobile}</Text> : null}
+                {errors.mobile && <Text style={styles.errorText}>{errors.mobile}</Text>}
 
                 <TextInput
-                  style={[styles.input, errors.password ? { borderColor: "#ef4444" } : {}]}
+                  style={[styles.input, errors.password && { borderColor: "#ef4444" }]}
                   placeholder="Password"
                   secureTextEntry
                   value={password}
                   onChangeText={(text) => handleInputChange("password", text)}
                   onBlur={() => validateField("password", password)}
                 />
-                {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
+                {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
 
-                <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
-                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Login</Text>}
+                <TouchableOpacity
+                  style={styles.button}
+                  onPress={handleLogin}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.buttonText}>Login</Text>
+                  )}
                 </TouchableOpacity>
 
-                {/* ICON ROW: Forgot, New User, Exit */}
+                {/* Action Row */}
                 <View style={styles.iconRow}>
                   <TouchableOpacity style={styles.iconButton} onPress={() => setForgotMode(true)}>
                     <Ionicons name="key-outline" size={18} color="#2563eb" />
@@ -205,20 +275,34 @@ import { DecodedToken } from "../../hooks/interface";
               <>
                 <Text style={styles.title}>Forgot Password</Text>
 
-                {/* Role toggle */}
+                {/* Role Toggle */}
                 <View style={styles.roleSwitchContainer}>
                   <TouchableOpacity
                     style={[styles.roleButton, forgotRole === "Admin" && styles.roleButtonActive]}
                     onPress={() => setForgotRole("Admin")}
                   >
-                    <Text style={[styles.roleButtonText, forgotRole === "Admin" && styles.roleButtonTextActive]}>Admin</Text>
+                    <Text
+                      style={[
+                        styles.roleButtonText,
+                        forgotRole === "Admin" && styles.roleButtonTextActive,
+                      ]}
+                    >
+                      Admin
+                    </Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={[styles.roleButton, forgotRole === "User" && styles.roleButtonActive]}
                     onPress={() => setForgotRole("User")}
                   >
-                    <Text style={[styles.roleButtonText, forgotRole === "User" && styles.roleButtonTextActive]}>User</Text>
+                    <Text
+                      style={[
+                        styles.roleButtonText,
+                        forgotRole === "User" && styles.roleButtonTextActive,
+                      ]}
+                    >
+                      User
+                    </Text>
                   </TouchableOpacity>
                 </View>
 
@@ -230,8 +314,16 @@ import { DecodedToken } from "../../hooks/interface";
                   maxLength={forgotRole === "Admin" ? 10 : 12}
                 />
 
-                <TouchableOpacity style={styles.button} onPress={handleForgotPassword} disabled={forgotLoading}>
-                  {forgotLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Submit</Text>}
+                <TouchableOpacity
+                  style={styles.button}
+                  onPress={handleForgotPassword}
+                  disabled={forgotLoading}
+                >
+                  {forgotLoading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.buttonText}>Submit</Text>
+                  )}
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.secondaryButton} onPress={() => setForgotMode(false)}>
@@ -246,10 +338,11 @@ import { DecodedToken } from "../../hooks/interface";
             <Text style={styles.footerText}>© 2025 Lead Manager by Hiresh iSearch</Text>
             <Text style={styles.footerSubText}>Version 1.0.0</Text>
           </View>
-
-          <Toast />
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* ✅ Toast moved outside ScrollView */}
+      <Toast />
     </SafeAreaView>
   );
 };
@@ -257,36 +350,29 @@ import { DecodedToken } from "../../hooks/interface";
 export default LoginScreen;
 
 //
-// Styles
+// ✅ Styles
 //
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
-    justifyContent: "space-between", // keeps header, body, footer spaced
+    justifyContent: "space-between",
     alignItems: "center",
     paddingVertical: 28,
     paddingHorizontal: 28,
     backgroundColor: "#f9fafb",
   },
-
-  header: {
-    alignItems: "center",
-    marginTop: 8,
-    marginBottom: 12,
-  },
+  header: { alignItems: "center", marginTop: 8, marginBottom: 12 },
   logo: { width: 70, height: 70, marginBottom: 10, borderRadius: 15 },
   headerTitle: { fontSize: 24, fontWeight: "700", color: "#1e3a8a" },
   headerSubtitle: { fontSize: 14, color: "#6b7280" },
-
   middleContainer: {
     flex: 1,
     width: "100%",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12, 
+    paddingVertical: 12,
   },
   title: { fontSize: 26, fontWeight: "700", color: "#111827", marginBottom: 20 },
-
   input: {
     width: "98%",
     height: 50,
@@ -299,7 +385,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   errorText: { alignSelf: "flex-start", color: "#ef4444", marginLeft: "4%", marginBottom: 6 },
-
   button: {
     width: "98%",
     backgroundColor: "#2563eb",
@@ -309,27 +394,24 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   buttonText: { color: "#fff", fontSize: 18, fontWeight: "600" },
-
-  iconRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: 20,
-    gap: 36,
-  },
+  iconRow: { flexDirection: "row", justifyContent: "center", marginTop: 20, gap: 36 },
   iconButton: { alignItems: "center" },
   iconButtonText: { color: "#2563eb", fontSize: 14, marginTop: 4, fontWeight: "500" },
-
   footer: { alignItems: "center", marginTop: 12, paddingBottom: 8 },
   footerText: { fontSize: 12, color: "#6b7280" },
   footerSubText: { fontSize: 11, color: "#9ca3af" },
-
-  // forgot role toggle
   roleSwitchContainer: { flexDirection: "row", justifyContent: "center", marginBottom: 12 },
-  roleButton: { paddingVertical: 8, paddingHorizontal: 18, borderRadius: 20, borderWidth: 1, borderColor: "#2563eb", marginHorizontal: 6 },
+  roleButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#2563eb",
+    marginHorizontal: 6,
+  },
   roleButtonActive: { backgroundColor: "#2563eb" },
   roleButtonText: { color: "#2563eb", fontSize: 15, fontWeight: "600" },
   roleButtonTextActive: { color: "#fff" },
-
   secondaryButton: { marginTop: 10 },
   secondaryText: { color: "#2563eb", fontSize: 16, fontWeight: "500" },
 });

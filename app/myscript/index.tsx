@@ -28,65 +28,64 @@ export default function HomeScreen() {
   const [activeTab, setActiveTab] = useState<string>("Recent");
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
-  // 🔐 Verify user session
   useEffect(() => {
     const verifySession = async () => {
       try {
         const sessionStr = await AsyncStorage.getItem("userSession");
-
         if (!sessionStr) {
-          Toast.show({ type: "info", text1: "No session found" });
+          Toast.show({ type: "info", text1: "Session missing" });
           router.replace("../myscript/LoginScreen");
           return;
         }
 
         const session: UserSession = JSON.parse(sessionStr);
         const token = session?.token;
-
         if (!token) {
           await AsyncStorage.removeItem("userSession");
           router.replace("../myscript/LoginScreen");
           return;
         }
 
+        // ✅ decode the token safely
         let decoded: DecodedToken;
         try {
           decoded = jwtDecode<DecodedToken>(token);
-        } catch {
-          Toast.show({
-            type: "error",
-            text1: "Invalid token",
-            text2: "Please login again.",
-          });
+          console.log("🔹 Decoded Token:", decoded);
+        } catch (e) {
+          Toast.show({ type: "error", text1: "Invalid token", text2: "Please login again." });
           await AsyncStorage.removeItem("userSession");
           router.replace("../myscript/LoginScreen");
           return;
         }
 
-        // Token expiration check
+        // ✅ check expiry
         const now = Date.now() / 1000;
         if (decoded.exp && decoded.exp < now) {
           await AsyncStorage.removeItem("userSession");
-          Toast.show({
-            type: "info",
-            text1: "Session Expired",
-            text2: "Please login again.",
-          });
+          Toast.show({ type: "info", text1: "Session expired", text2: "Login again" });
           router.replace("../myscript/LoginScreen");
           return;
         }
 
-        // Build current user
+        // ✅ Build CurrentUser from JWT fields that actually exist
         const currentUser: CurrentUser = {
-          name: decoded.name || "Guest",
-          role: decoded.role || "Visitor",
+          name: decoded.userDisplayName || "Guest",
+          email: decoded.userEmail || "",
+          mobile: decoded.userMobile || "",
+          role: decoded.userRole || "Visitor",
           userId: decoded.userId || "",
-          corpId: decoded.corporateId || "Unknown",
-          profileImage: decoded.profileImage || "https://cdn-icons-png.flaticon.com/512/3135/3135718.png", token, };
+          corpId: decoded.corporateId || "",
+          corpName: decoded.corporateName || "",
+          corpEmail: decoded.corporateEmail || "",
+          corpAdminId: decoded.corpAdminId || "",
+          profileImage:
+            decoded.profileImage || "https://cdn-icons-png.flaticon.com/512/3135/3135718.png",
+          token,
+        };
 
         setUser(currentUser);
 
-        // Filter menu based on user role
+        // ✅ Filter menu items by role
         const filtered = (menuItems as MenuItem[]).filter(
           (item) => item.role.toLowerCase() === currentUser.role.toLowerCase()
         );
@@ -94,11 +93,8 @@ export default function HomeScreen() {
         setFilteredMenu(filtered);
         if (filtered.length > 0) setActiveTab(filtered[0].screen);
       } catch (err) {
-        Toast.show({
-          type: "error",
-          text1: "Session Error",
-          text2: String(err),
-        });
+        console.error("Session Error:", err);
+        Toast.show({ type: "error", text1: "Session Error", text2: String(err) });
         await AsyncStorage.removeItem("userSession");
         router.replace("../myscript/LoginScreen");
       } finally {
@@ -109,21 +105,15 @@ export default function HomeScreen() {
     verifySession();
   }, []);
 
-  // 🍔 Menu controls
   const openMenu = () => setMenuVisible(true);
   const closeMenu = () => setMenuVisible(false);
 
   const handleMenuSelect = async (action: string) => {
     closeMenu();
-
     try {
       if (action === "logout") {
         await AsyncStorage.removeItem("userSession");
-        Toast.show({
-          type: "success",
-          text1: "Logged Out",
-          text2: "You have been logged out.",
-        });
+        Toast.show({ type: "success", text1: "Logged Out" });
         router.replace("../myscript/LoginScreen");
       } else if (action === "update") router.push("/update-profile");
       else if (action === "settings") router.push("/settings");
@@ -132,7 +122,6 @@ export default function HomeScreen() {
     }
   };
 
-  // ⚙️ Tab animation and navigation
   const handleTabPress = (screen: string) => {
     setActiveTab(screen);
     Animated.sequence([
@@ -141,7 +130,6 @@ export default function HomeScreen() {
     ]).start();
   };
 
-  // 🧭 Floating tab bar
   const renderTabBar = () => (
     <View style={styles.tabBarContainer}>
       {filteredMenu.length > 0 ? (
@@ -165,11 +153,7 @@ export default function HomeScreen() {
                   size={isActive ? 26 : 22}
                   color={isActive ? "#fff" : "#444"}
                 />
-                <Text
-                  style={[styles.tabText, isActive && styles.activeTabText]}
-                  numberOfLines={1}
-                  ellipsizeMode="clip"
-                >
+                <Text style={[styles.tabText, isActive && styles.activeTabText]} numberOfLines={1}>
                   {item.name}
                 </Text>
               </Animated.View>
@@ -182,44 +166,24 @@ export default function HomeScreen() {
     </View>
   );
 
-  // 🧩 Main screen body
   const renderBody = () => {
-    try {
-      if (!user) return null;
+    if (!user) return null;
 
-      if (user.corpId === "Unknown" || !user.corpId) {
-        return (
-          <View style={styles.centerBody}>
-            <Text style={styles.warningText}>
-              User not linked with any company
-            </Text>
-          </View>
-        );
-      }
-
-      const CorporateId = user.corpId;
-      if (user.corpId !== CorporateId) {
-        return (
-          <View style={styles.centerBody}>
-            <Text style={styles.warningText}>
-              Corporate not registered or corpId is incorrect.
-            </Text>
-          </View>
-        );
-      }
-      
-      return <LeadByStatusScreen token={user.token} status={activeTab} cropId={CorporateId} />;
-   
-    } catch (err) {
-      Toast.show({ type: "error", text1: "Render Error", text2: String(err) });
+    if (!user.corpId) {
       return (
         <View style={styles.centerBody}>
-          <Text style={styles.warningText}>
-            Something went wrong. Please try again.
-          </Text>
+          <Text style={styles.warningText}>User not linked with any corporate.</Text>
         </View>
       );
     }
+
+    return (
+      <LeadByStatusScreen
+        token={user.token}
+        status={activeTab}
+        corpId={user.corpId}
+      />
+    );
   };
 
   if (loading) {
@@ -231,37 +195,49 @@ export default function HomeScreen() {
     );
   }
 
-  // 🏠 Render main layout
   return (
     <Provider>
       <View style={styles.container}>
-        {/* Header */}
         <View style={styles.header}>
           <View style={styles.profileSection}>
-            <Image
-              source={{ uri: user?.profileImage }}
-              style={styles.profileImage}
-            />
+            <Image source={{ uri: user?.profileImage }} style={styles.profileImage} />
             <View>
               <Text style={styles.name}>{user?.name}</Text>
               <Text style={styles.subtitle}>
-                {user?.corpId} ({user?.role})
+                {user?.corpName ? `${user.corpName}` : "Guest"} ({user?.role})
               </Text>
             </View>
           </View>
 
-          <Menu visible={menuVisible} onDismiss={closeMenu} anchor={<TouchableOpacity onPress={openMenu}><MaterialIcons name="more-vert" size={24} color="#333" /></TouchableOpacity>}>
-            <Menu.Item onPress={() => handleMenuSelect("update")} title="Update Profile" leadingIcon={() => <MaterialIcons name="person-outline" size={22} color="#333" />} />
+          <Menu
+            visible={menuVisible}
+            onDismiss={closeMenu}
+            anchor={
+              <TouchableOpacity onPress={openMenu}>
+                <MaterialIcons name="more-vert" size={24} color="#333" />
+              </TouchableOpacity>
+            }
+          >
+            <Menu.Item
+              onPress={() => handleMenuSelect("update")}
+              title="Update Profile"
+              leadingIcon={() => <MaterialIcons name="person-outline" size={22} color="#333" />}
+            />
             <Divider />
-            <Menu.Item onPress={() => handleMenuSelect("settings")} title="Settings" leadingIcon={() => <MaterialIcons name="settings" size={22} color="#333" />} />
-            <Menu.Item onPress={() => handleMenuSelect("logout")} title="Logout" leadingIcon={() => <MaterialIcons name="logout" size={22} color="#d32f2f" />} />
+            <Menu.Item
+              onPress={() => handleMenuSelect("settings")}
+              title="Settings"
+              leadingIcon={() => <MaterialIcons name="settings" size={22} color="#333" />}
+            />
+            <Menu.Item
+              onPress={() => handleMenuSelect("logout")}
+              title="Logout"
+              leadingIcon={() => <MaterialIcons name="logout" size={22} color="#d32f2f" />}
+            />
           </Menu>
         </View>
 
-        {/* Main Content */}
         <View style={{ flex: 1 }}>{renderBody()}</View>
-
-        {/* Tabs */}
         {renderTabBar()}
         <Toast />
       </View>
@@ -299,13 +275,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   centerBody: { flex: 1, justifyContent: "center", alignItems: "center" },
-  warningText: {
-    color: "#ff4d4d",
-    fontSize: 16,
-    fontWeight: "700",
-    textAlign: "center",
-    marginHorizontal: 20,
-  },
+  warningText: { color: "#ff4d4d", fontSize: 16, fontWeight: "700", textAlign: "center" },
   tabBarContainer: {
     position: "absolute",
     bottom: 20,
@@ -323,12 +293,7 @@ const styles = StyleSheet.create({
     shadowRadius: 1,
     elevation: 1,
   },
-  tabItem: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    marginHorizontal: 5,
-  },
+  tabItem: { flex: 1, alignItems: "center", justifyContent: "center", marginHorizontal: 5 },
   activeTabItem: {
     backgroundColor: "#2563EB",
     borderRadius: 10,
@@ -337,10 +302,5 @@ const styles = StyleSheet.create({
   },
   tabText: { fontSize: 12, color: "#777", marginTop: 3 },
   activeTabText: { color: "#fff", fontWeight: "700" },
-  noMenuText: {
-    textAlign: "center",
-    color: "#888",
-    fontSize: 13,
-    fontStyle: "italic",
-  },
+  noMenuText: { textAlign: "center", color: "#888", fontSize: 13, fontStyle: "italic" },
 });

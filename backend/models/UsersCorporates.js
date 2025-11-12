@@ -18,7 +18,8 @@ const embeddedCorporateSchema = new mongoose.Schema({
 
 /* 🧱 Access Corporate Schema — For Sales/Project */
 const accessCorporateSchema = new mongoose.Schema({
-  corporateId: { type: String, default: null },
+  corpAdminId: { type: String, default: "" },
+  corporateId: { type: String, default: "" },
   accessAllow: { type: Boolean, default: false },
 }, { _id: false });
 
@@ -55,7 +56,7 @@ const userSchema = new mongoose.Schema({
     type: accessCorporateSchema,
     default: function () {
       return ["Sales", "Project"].includes(this.userRole)
-        ? { corporateId: null, accessAllow: false }
+        ? { corpAdminId: "", corporateId: "", accessAllow: false }
         : undefined;
     },
   },

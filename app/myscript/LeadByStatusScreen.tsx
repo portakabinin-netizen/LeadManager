@@ -4,14 +4,14 @@ import { Leads } from "@/hooks/interface";
 import axios from "axios";
 import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    FlatList,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  FlatList,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import Toast from "react-native-toast-message";
-import LeadTile from "./RenderLeadTile"; // 👈 new component for each tile
+import LeadTile from "./RenderLeadTile";
 
 interface LeadByStatusScreenProps {
   token: string;

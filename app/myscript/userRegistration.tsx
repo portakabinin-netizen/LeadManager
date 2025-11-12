@@ -58,12 +58,7 @@ const UserRegistration = () => {
   };
 
   const validateInputs = () => {
-    /*
-    const nameRegex = /^[A-Za-z.@ ]+$/;
-    const mobileRegex = /^[6-9]\d{9}$/;
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
-    const aadharRegex = /^\d{12}$/; */
+   
 
     if (!formData.userDisplayName.trim() || !regex.name.test(formData.userDisplayName))
       return "Enter valid full name (letters, dot, or @ allowed)";
