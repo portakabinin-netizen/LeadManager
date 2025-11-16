@@ -11,7 +11,7 @@ const devMode = __DEV__; // true when running locally in Expo Go
 
 // Build final API base URL
 const api_url = devMode
-  ? `http://${expoHost}:3000/api` // Local backend port (adjust if needed)
+  ? `http://${expoHost}:5000/api` // Local backend port (adjust if needed)
   : `${productionURL}/api`; // Production backend (Railway)
 
 export default api_url;

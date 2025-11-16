@@ -7,7 +7,15 @@ require("dotenv").config();
 
 // Routers
 const serviceRouter = require("./routes/serviceRouter");
-const authRouter = require("./routes/authRouter"); 
+const authRouter = require("./routes/authRouter");
+
+// API URLs store in AsyncStorage to get in frontend script 
+const urlConfig = {
+   urlTI: process.env.ENDPOINT_TI,
+   urlMI: process.env.ENDPOINT_IM,  
+  };
+  global.allURLs =urlConfig;
+      
 
 const app = express();
 
@@ -41,7 +49,8 @@ io.on("connection", (socket) => {
 
 // ---------- Mount Routes ----------
 app.use("/api/auth", authRouter); 
-app.use("/api/service", serviceRouter); 
+app.use("/api/service", serviceRouter);
+//app.use("/api", leadServices); 
 
 // ---------- Default Route ----------
 app.get("/", (req, res) => {

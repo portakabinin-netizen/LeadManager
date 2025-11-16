@@ -26,6 +26,7 @@ const accessCorporateSchema = new mongoose.Schema({
 /* 🧱 Main User Schema */
 const userSchema = new mongoose.Schema({
   userDisplayName: { type: String, required: true, trim: true, match: regex.name },
+  userProfile:{type:String},
   userEmail: { type: String, trim: true, lowercase: true, match: regex.email },
   userMobile: { type: String, required: true, unique: true, trim: true, match: regex.mobile },
   userPassword: { type: String, required: true, minlength: 6 },

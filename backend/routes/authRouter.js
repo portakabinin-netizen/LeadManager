@@ -82,6 +82,7 @@ router.post("/login", async (req, res) => {
       const payload = {
         userId: user._id,
         userDisplayName: user.userDisplayName,
+        userProfile: user.userProfile,
         userEmail: user.userEmail,
         userMobile: user.userMobile,
         userRole: user.userRole,
@@ -94,6 +95,7 @@ router.post("/login", async (req, res) => {
         corporateState: corp.corporateState || "",
         corporatePin: corp.corporatePin || "",
         corporateGST: corp.corporateGST || "",
+        apiURLs:global.allURLs|| "",
       };
 
       const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "7d" });
@@ -131,6 +133,7 @@ router.post("/login", async (req, res) => {
       const payload = {
         userId: user._id,
         userDisplayName: user.userDisplayName,
+        userProfile: user.userProfile,
         userEmail: user.userEmail,
         userMobile: user.userMobile,
         userRole: user.userRole,
@@ -143,6 +146,7 @@ router.post("/login", async (req, res) => {
         corporateState: corp.corporateState || "",
         corporatePin: corp.corporatePin || "",
         corporateGST: corp.corporateGST || "",
+        apiURLs: global.allURLs|| "",
       };
 
       const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "7d" });
@@ -159,6 +163,7 @@ router.post("/login", async (req, res) => {
     const guestPayload = {
       userId: user._id,
       userDisplayName: user.userDisplayName,
+      userProfile: user.userProfile,
       userEmail: user.userEmail,
       userMobile: user.userMobile,
       userRole: user.userRole,

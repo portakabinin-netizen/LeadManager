@@ -9,12 +9,13 @@ export const registerCorpAdmin = async (formData) => {
   try {
     const payload = {
       userDisplayName: formData.userDisplayName,
+      userProfile:"https://cdn-icons-png.flaticon.com/512/3135/3135718.png",
       userEmail: formData.userEmail,
       userMobile: formData.userMobile,
       userPassword: formData.userPassword,
       userRole: "CorpAdmin",
       userAadhar: formData.userAadhar,
-      userDoB: formData.userDoB, // format: yyyy-mm-dd or Date object
+      userDoB: formData.userDoB,
 
       linkedCorporate: {
         corporateName: formData.corporateName,
@@ -45,6 +46,7 @@ export const registerNonAdmin = async (formData) => {
   try {
     const payload = {
       userDisplayName: formData.userDisplayName,
+      userProfile:"https://cdn-icons-png.flaticon.com/512/3135/3135718.png",
       userEmail: formData.userEmail,
       userMobile: formData.userMobile,
       userPassword: formData.userPassword,
