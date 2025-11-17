@@ -1,7 +1,0 @@
-[
-  { "id": "1", "name": "Recent", "icon": "home", "screen": "Recent" },
-  { "id": "2", "name": "Engaged", "icon": "support-agent", "screen": "Engaged" },
-  { "id": "3", "name": "Accepted", "icon": "check-circle-outline", "screen": "Accepted" },
-  { "id": "4", "name": "Restore", "icon": "restore", "screen": "Restore" },
-  { "id": "5", "name": "Recycle", "icon": "delete", "screen": "Recycle" }
-]
